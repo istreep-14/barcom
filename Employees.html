@@ -1,4 +1,100 @@
-<section>
-  <h1>Employees</h1>
-  <p>Coming soon. Link your `employee0901` UI here.</p>
-</section>
+<?!= include('EmployeesStyles'); ?>
+<div class="container">
+        <div class="header">
+            <h1>👥 Employees</h1>
+            <p>Manage your staff roster</p>
+        </div>
+
+        <div class="content">
+            <div class="controls">
+                <div>
+                    <strong id="empCount">Employees</strong>
+                </div>
+                <div>
+                    <button class="btn" onclick="loadEmployees()">🔄 Refresh</button>
+                    <button class="btn" onclick="openEmpModal()">+ Add Employee</button>
+                </div>
+            </div>
+
+            <div id="empError"></div>
+            <div id="empSuccess"></div>
+
+            <div class="loading" id="empLoading" style="text-align:center; padding: 24px; color:#6c757d;">Loading...</div>
+
+            <div class="table-container" id="empTableWrap" style="display:none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="empTableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="empty-state" id="empEmpty" style="display:none; text-align:center; padding: 40px; color:#6c757d;">
+                <h3>No employees yet</h3>
+                <p>Click "Add Employee" to create your first employee record.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="empModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="empModalTitle">Add Employee</h2>
+                <span class="close" onclick="closeEmpModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="empForm">
+                    <input type="hidden" id="empId" value="">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="empName">Name</label>
+                            <input id="empName" type="text" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="empRole">Role</label>
+                            <input id="empRole" type="text" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="empPhone">Phone</label>
+                            <input id="empPhone" type="tel">
+                        </div>
+                        <div class="form-group">
+                            <label for="empEmail">Email</label>
+                            <input id="empEmail" type="email">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="empStatus">Status</label>
+                            <select id="empStatus">
+                                <option>Active</option>
+                                <option>Inactive</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="empNotes">Notes</label>
+                            <textarea id="empNotes" rows="3" placeholder="Notes..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" onclick="closeEmpModal()">Cancel</button>
+                <button class="btn" type="button" onclick="saveEmployee()">Save</button>
+            </div>
+        </div>
+    </div>
+
+<?!= include('EmployeesScripts'); ?>
