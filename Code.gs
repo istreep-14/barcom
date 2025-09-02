@@ -90,3 +90,60 @@ function computeHours_(date, startTime, endTime) {
   return (end - start) / (1000 * 60 * 60);
 }
 
+// Employees sheet helpers and CRUD
+function getEmployeesSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  var sheet = ss.getSheetByName('Employees');
+  if (!sheet) {
+    sheet = ss.insertSheet('Employees');
+    sheet.appendRow(['id','name','role','phone','email','status','notes']);
+  }
+  return sheet;
+}
+
+function getAllEmployees() {
+  var sheet = getEmployeesSheet_();
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+  var headers = values[0];
+  return values.slice(1).map(function(row) {
+    var o = {};
+    headers.forEach(function(h, i) { o[h] = row[i]; });
+    return o;
+  });
+}
+
+function addEmployee(emp) {
+  var sheet = getEmployeesSheet_();
+  sheet.appendRow([
+    emp.id, emp.name, emp.role, emp.phone, emp.email, emp.status, emp.notes || ''
+  ]);
+  return { ok: true };
+}
+
+function updateEmployee(emp) {
+  var sheet = getEmployeesSheet_();
+  var data = sheet.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    if (data[r][0] === emp.id) {
+      sheet.getRange(r + 1, 1, 1, 7).setValues([[
+        emp.id, emp.name, emp.role, emp.phone, emp.email, emp.status, emp.notes || ''
+      ]]);
+      return { ok: true };
+    }
+  }
+  throw new Error('Employee not found: ' + emp.id);
+}
+
+function deleteEmployee(id) {
+  var sheet = getEmployeesSheet_();
+  var data = sheet.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    if (data[r][0] === id) {
+      sheet.deleteRow(r + 1);
+      return { ok: true };
+    }
+  }
+  throw new Error('Employee not found: ' + id);
+}
+

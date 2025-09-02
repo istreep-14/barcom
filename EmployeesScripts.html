@@ -1,0 +1,127 @@
+<script>
+        let employees = [];
+        let editingEmployeeId = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadEmployees();
+        });
+
+        function showError(message) {
+            const container = document.getElementById('empError');
+            if (!container) return;
+            container.innerHTML = '<div class="error-message">' + message + '</div>';
+            setTimeout(() => container.innerHTML = '', 4000);
+        }
+
+        function showSuccess(message) {
+            const container = document.getElementById('empSuccess');
+            if (!container) return;
+            container.innerHTML = '<div class="success-message">' + message + '</div>';
+            setTimeout(() => container.innerHTML = '', 2500);
+        }
+
+        function loadEmployees() {
+            document.getElementById('empLoading').style.display = 'block';
+            document.getElementById('empTableWrap').style.display = 'none';
+            document.getElementById('empEmpty').style.display = 'none';
+
+            google.script.run
+                .withSuccessHandler(onEmployeesLoaded)
+                .withFailureHandler(showError)
+                .getAllEmployees();
+        }
+
+        function onEmployeesLoaded(data) {
+            employees = Array.isArray(data) ? data : [];
+            document.getElementById('empLoading').style.display = 'none';
+            if (employees.length === 0) {
+                document.getElementById('empEmpty').style.display = 'block';
+                return;
+            }
+            document.getElementById('empTableWrap').style.display = 'block';
+            renderEmployeesTable();
+        }
+
+        function renderEmployeesTable() {
+            const tbody = document.getElementById('empTableBody');
+            tbody.innerHTML = '';
+            employees.forEach(emp => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${emp.name || ''}</td>
+                    <td>${emp.role || ''}</td>
+                    <td>${emp.phone || ''}</td>
+                    <td>${emp.email || ''}</td>
+                    <td>${emp.status || ''}</td>
+                    <td>${emp.notes || '-'}</td>
+                    <td>
+                        <button class="btn btn-edit" onclick="editEmployee('${emp.id}')">Edit</button>
+                        <button class="btn btn-delete" onclick="deleteEmployee('${emp.id}')">Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        function openEmpModal() {
+            editingEmployeeId = null;
+            document.getElementById('empModalTitle').textContent = 'Add Employee';
+            document.getElementById('empForm').reset();
+            document.getElementById('empId').value = '';
+            document.getElementById('empModal').style.display = 'block';
+        }
+
+        function closeEmpModal() {
+            document.getElementById('empModal').style.display = 'none';
+            editingEmployeeId = null;
+        }
+
+        function editEmployee(id) {
+            const emp = employees.find(e => e.id === id);
+            if (!emp) return;
+            editingEmployeeId = id;
+            document.getElementById('empModalTitle').textContent = 'Edit Employee';
+            document.getElementById('empId').value = emp.id;
+            document.getElementById('empName').value = emp.name || '';
+            document.getElementById('empRole').value = emp.role || '';
+            document.getElementById('empPhone').value = emp.phone || '';
+            document.getElementById('empEmail').value = emp.email || '';
+            document.getElementById('empStatus').value = emp.status || 'Active';
+            document.getElementById('empNotes').value = emp.notes || '';
+            document.getElementById('empModal').style.display = 'block';
+        }
+
+        function saveEmployee() {
+            const form = document.getElementById('empForm');
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            const payload = {
+                id: document.getElementById('empId').value || generateId(),
+                name: document.getElementById('empName').value,
+                role: document.getElementById('empRole').value,
+                phone: document.getElementById('empPhone').value,
+                email: document.getElementById('empEmail').value,
+                status: document.getElementById('empStatus').value,
+                notes: document.getElementById('empNotes').value
+            };
+            const op = editingEmployeeId ? 'updateEmployee' : 'addEmployee';
+            google.script.run
+                .withSuccessHandler(() => { showSuccess('Saved'); closeEmpModal(); loadEmployees(); })
+                .withFailureHandler(showError)
+                [op](payload);
+        }
+
+        function deleteEmployee(id) {
+            if (!confirm('Delete this employee?')) return;
+            google.script.run
+                .withSuccessHandler(() => { showSuccess('Deleted'); loadEmployees(); })
+                .withFailureHandler(showError)
+                .deleteEmployee(id);
+        }
+
+        function generateId() { return 'emp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('empModal');
+            if (event.target === modal) closeEmpModal();
+        }
+</script>
