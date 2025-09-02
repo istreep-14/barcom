@@ -1,0 +1,10 @@
+<script>
+  console.log('Scripts loaded');
+
+  function getTime() {
+    google.script.run.withSuccessHandler(function(response) {
+      alert(response);
+    }).serverTime();
+  }
+</script>
+
