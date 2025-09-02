@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <title>Bar Combined App</title>
+    <?!= include('Styles'); ?>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <a href="?page=Home">Home</a>
+        <a href="?page=Employees">Employees</a>
+        <a href="?page=Shifts">Shifts</a>
+      </aside>
+      <main class="content">
+        <?!= include(page); ?>
+      </main>
+    </div>
+    
+  </body>
+  </html>
+

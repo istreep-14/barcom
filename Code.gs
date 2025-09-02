@@ -89,3 +89,4 @@ function computeHours_(date, startTime, endTime) {
   if (end < start) end.setDate(end.getDate() + 1);
   return (end - start) / (1000 * 60 * 60);
 }
+
