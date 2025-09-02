@@ -1,16 +1,21 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
   <head>
     <base target="_top">
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>It works</title>
+    <title>Bar Combined App</title>
     <?!= include('Styles'); ?>
   </head>
   <body>
-    <h1>Hello from Apps Script</h1>
-    <button onclick="getTime()">Get server time</button>
-
+    <div class="app">
+      <aside class="sidebar">
+        <a href="?page=Home">Home</a>
+        <a href="?page=Employees">Employees</a>
+        <a href="?page=Shifts">Shifts</a>
+      </aside>
+      <main class="content">
+        <?!= include(page); ?>
+      </main>
+    </div>
     <?!= include('Scripts'); ?>
   </body>
   </html>
