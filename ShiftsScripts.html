@@ -1,0 +1,408 @@
+<script>
+        let shifts = [];
+        let editingShiftId = null;
+        let isGoogleAppsScript = false;
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if we're running in Google Apps Script environment
+            isGoogleAppsScript = (typeof google !== 'undefined' && google.script && google.script.run);
+            
+            debugLog('App initialized. Google Apps Script available: ' + isGoogleAppsScript);
+            loadShifts();
+        });
+
+        function debugLog(message) {
+            console.log('[Debug] ' + message);
+            const debugContent = document.getElementById('debugContent');
+            if (debugContent) {
+                debugContent.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            }
+        }
+
+        function showError(message) {
+            const container = document.getElementById('errorContainer');
+            container.innerHTML = '<div class="error-message">' + message + '</div>';
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const container = document.getElementById('successContainer');
+            container.innerHTML = '<div class="success-message">' + message + '</div>';
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 3000);
+        }
+
+        function toggleDebug() {
+            const debugInfo = document.getElementById('debugInfo');
+            debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function loadShifts() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('tableContainer').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'none';
+
+            debugLog('Starting loadShifts()');
+            
+            try {
+                if (isGoogleAppsScript) {
+                    debugLog('Calling getAllShifts via Google Apps Script');
+                    google.script.run
+                        .withSuccessHandler(function(data) {
+                            debugLog('getAllShifts success: ' + JSON.stringify(data));
+                            onShiftsLoaded(data);
+                        })
+                        .withFailureHandler(function(error) {
+                            debugLog('getAllShifts error: ' + JSON.stringify(error));
+                            onError(error);
+                        })
+                        .getAllShifts();
+                } else {
+                    debugLog('Google Apps Script not available, using mock data');
+                    // For testing purposes, use mock data
+                    setTimeout(() => {
+                        const mockData = [
+                            {
+                                id: 'mock1',
+                                date: '2025-01-15',
+                                startTime: '18:00',
+                                endTime: '02:00',
+                                hours: 8,
+                                location: 'Downtown Bar',
+                                tips: 150.75,
+                                tipsPerHour: 18.84,
+                                notes: 'Busy Friday night'
+                            }
+                        ];
+                        onShiftsLoaded(mockData);
+                    }, 1000);
+                }
+            } catch (error) {
+                debugLog('Exception in loadShifts: ' + error.message);
+                onError(error);
+            }
+        }
+
+        function onShiftsLoaded(data) {
+            debugLog('onShiftsLoaded called with data type: ' + typeof data);
+            debugLog('Data is array: ' + Array.isArray(data));
+            debugLog('Data length: ' + (data ? data.length : 'null/undefined'));
+            
+            // Ensure data is an array
+            if (!Array.isArray(data)) {
+                debugLog('Data is not an array, converting...');
+                data = data ? [data] : [];
+            }
+            
+            shifts = data;
+            debugLog('Processed shifts array length: ' + shifts.length);
+            
+            document.getElementById('loading').style.display = 'none';
+            
+            if (shifts.length === 0) {
+                debugLog('No shifts found, showing empty state');
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('tableContainer').style.display = 'none';
+            } else {
+                debugLog('Shifts found, rendering table');
+                document.getElementById('emptyState').style.display = 'none';
+                document.getElementById('tableContainer').style.display = 'block';
+                renderShiftsTable();
+            }
+            
+            updateStats();
+        }
+
+        function renderShiftsTable() {
+            debugLog('Rendering table with ' + shifts.length + ' shifts');
+            const tbody = document.getElementById('shiftsTableBody');
+            tbody.innerHTML = '';
+
+            shifts.forEach((shift, index) => {
+                debugLog('Rendering shift ' + index + ': ' + JSON.stringify(shift));
+                
+                const row = tbody.insertRow();
+                
+                // Safely handle data that might be null/undefined
+                const date = shift.date || '';
+                const startTime = shift.startTime || '';
+                const endTime = shift.endTime || '';
+                const location = shift.location || '';
+                const tips = parseFloat(shift.tips) || 0;
+                const notes = shift.notes || '';
+                
+                // Calculate hours and tips per hour
+                let hours = parseFloat(shift.hours) || 0;
+                let tipsPerHour = parseFloat(shift.tipsPerHour) || 0;
+                
+                // Recalculate if not provided
+                if (hours === 0 && startTime && endTime) {
+                    const startDateTime = new Date(`${date}T${startTime}`);
+                    const endDateTime = new Date(`${date}T${endTime}`);
+                    
+                    // Handle shifts that end past midnight
+                    if (endDateTime < startDateTime) {
+                        endDateTime.setDate(endDateTime.getDate() + 1);
+                    }
+                    
+                    hours = (endDateTime - startDateTime) / (1000 * 60 * 60);
+                    tipsPerHour = hours > 0 ? (tips / hours) : 0;
+                }
+
+                row.innerHTML = `
+                    <td>${formatDate(date)}</td>
+                    <td>${formatTime(startTime)}</td>
+                    <td>${formatTime(endTime)}</td>
+                    <td class="hours">${hours.toFixed(1)}h</td>
+                    <td>${location}</td>
+                    <td class="currency">${tips.toFixed(2)}</td>
+                    <td class="currency">${tipsPerHour.toFixed(2)}</td>
+                    <td>${notes || '-'}</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn-edit" onclick="editShift('${shift.id}')">Edit</button>
+                            <button class="btn-delete" onclick="deleteShift('${shift.id}')">Delete</button>
+                        </div>
+                    </td>
+                `;
+            });
+        }
+
+        function updateStats() {
+            const totalShifts = shifts.length;
+            const totalTips = shifts.reduce((sum, shift) => sum + (parseFloat(shift.tips) || 0), 0);
+            const totalHours = shifts.reduce((sum, shift) => sum + (parseFloat(shift.hours) || 0), 0);
+            
+            document.getElementById('totalShifts').innerHTML = 
+                `${totalShifts} shift${totalShifts !== 1 ? 's' : ''} tracked<br>
+                <small>${totalTips.toFixed(2)} total tips | ${totalHours.toFixed(1)} hours</small>`;
+        }
+
+        function openAddModal() {
+            editingShiftId = null;
+            document.getElementById('modalTitle').textContent = 'Add New Shift';
+            document.getElementById('shiftForm').reset();
+            document.getElementById('shiftId').value = '';
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('shiftDate').value = today;
+            
+            document.getElementById('shiftModal').style.display = 'block';
+        }
+
+        function editShift(id) {
+            debugLog('Editing shift with ID: ' + id);
+            const shift = shifts.find(s => s.id === id);
+            if (!shift) {
+                showError('Shift not found');
+                return;
+            }
+
+            editingShiftId = id;
+            document.getElementById('modalTitle').textContent = 'Edit Shift';
+            document.getElementById('shiftId').value = id;
+            document.getElementById('shiftDate').value = shift.date;
+            document.getElementById('startTime').value = shift.startTime;
+            document.getElementById('endTime').value = shift.endTime;
+            document.getElementById('tips').value = shift.tips;
+            document.getElementById('location').value = shift.location;
+            document.getElementById('notes').value = shift.notes || '';
+            
+            document.getElementById('shiftModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('shiftModal').style.display = 'none';
+            editingShiftId = null;
+        }
+
+        function saveShift() {
+            const form = document.getElementById('shiftForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const shiftData = {
+                id: document.getElementById('shiftId').value || generateId(),
+                date: document.getElementById('shiftDate').value,
+                startTime: document.getElementById('startTime').value,
+                endTime: document.getElementById('endTime').value,
+                tips: parseFloat(document.getElementById('tips').value),
+                location: document.getElementById('location').value,
+                notes: document.getElementById('notes').value
+            };
+
+            debugLog('Saving shift: ' + JSON.stringify(shiftData));
+
+            try {
+                if (isGoogleAppsScript) {
+                    const operation = editingShiftId ? 'updateShift' : 'addShift';
+                    debugLog('Calling ' + operation + ' via Google Apps Script');
+                    
+                    google.script.run
+                        .withSuccessHandler(function(result) {
+                            debugLog('Save success: ' + JSON.stringify(result));
+                            onShiftSaved();
+                        })
+                        .withFailureHandler(function(error) {
+                            debugLog('Save error: ' + JSON.stringify(error));
+                            onError(error);
+                        })
+                        [operation](shiftData);
+                } else {
+                    debugLog('Google Apps Script not available, simulating save');
+                    // Add to local array for testing
+                    if (editingShiftId) {
+                        const index = shifts.findIndex(s => s.id === editingShiftId);
+                        if (index !== -1) {
+                            shifts[index] = shiftData;
+                        }
+                    } else {
+                        shifts.push(shiftData);
+                    }
+                    setTimeout(() => onShiftSaved(), 500);
+                }
+            } catch (error) {
+                debugLog('Exception in saveShift: ' + error.message);
+                onError(error);
+            }
+        }
+
+        function onShiftSaved() {
+            debugLog('Shift saved successfully');
+            showSuccess('Shift saved successfully!');
+            closeModal();
+            loadShifts();
+        }
+
+        function deleteShift(id) {
+            if (confirm('Are you sure you want to delete this shift?')) {
+                debugLog('Deleting shift: ' + id);
+                
+                try {
+                    if (isGoogleAppsScript) {
+                        google.script.run
+                            .withSuccessHandler(function(result) {
+                                debugLog('Delete success: ' + JSON.stringify(result));
+                                onShiftDeleted();
+                            })
+                            .withFailureHandler(function(error) {
+                                debugLog('Delete error: ' + JSON.stringify(error));
+                                onError(error);
+                            })
+                            .deleteShift(id);
+                    } else {
+                        debugLog('Google Apps Script not available, simulating delete');
+                        // Remove from local array for testing
+                        shifts = shifts.filter(s => s.id !== id);
+                        setTimeout(() => onShiftDeleted(), 500);
+                    }
+                } catch (error) {
+                    debugLog('Exception in deleteShift: ' + error.message);
+                    onError(error);
+                }
+            }
+        }
+
+        function onShiftDeleted() {
+            debugLog('Shift deleted successfully');
+            showSuccess('Shift deleted successfully!');
+            loadShifts();
+        }
+
+        function onError(error) {
+            debugLog('Error occurred: ' + JSON.stringify(error));
+            const errorMessage = error.message || error.toString() || 'An unknown error occurred';
+            showError('Error: ' + errorMessage);
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function testGoogleScript() {
+            debugLog('Testing Google Apps Script connection...');
+            
+            if (!isGoogleAppsScript) {
+                showError('Google Apps Script not available in this environment');
+                return;
+            }
+
+            try {
+                google.script.run
+                    .withSuccessHandler(function(result) {
+                        debugLog('Test success: ' + JSON.stringify(result));
+                        showSuccess('Connection successful! ' + JSON.stringify(result));
+                        loadShifts();
+                    })
+                    .withFailureHandler(function(error) {
+                        debugLog('Test error: ' + JSON.stringify(error));
+                        showError('Connection failed: ' + (error.message || error.toString()));
+                    })
+                    .testSetup();
+            } catch (error) {
+                debugLog('Exception in testGoogleScript: ' + error.message);
+                onError(error);
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', { 
+                    weekday: 'short', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            } catch (e) {
+                return dateString;
+            }
+        }
+
+        function formatTime(timeString) {
+            if (!timeString) return '-';
+            try {
+                const [hours, minutes] = timeString.split(':');
+                const date = new Date();
+                date.setHours(parseInt(hours), parseInt(minutes));
+                return date.toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+            } catch (e) {
+                return timeString;
+            }
+        }
+
+        function generateId() {
+            return 'shift_' + Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('shiftModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Handle escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Enable debug mode with Ctrl+D
+        document.addEventListener('keydown', function(event) {
+            if (event.ctrlKey && event.key === 'd') {
+                event.preventDefault();
+                toggleDebug();
+            }
+        });
+    </script>
